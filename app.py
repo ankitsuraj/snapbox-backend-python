@@ -10,7 +10,9 @@ CORS(app)
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
+@app.route('/')
+def home():
+    return 'SnapBox Backend Server is Running!'
 @app.route('/upload', methods=['POST'])
 def upload_files():
     if 'photos' not in request.files:
