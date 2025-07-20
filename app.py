@@ -3,13 +3,13 @@ from flask_cors import CORS
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
-import os
 import time
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Cloudinary config
+# Cloudinary Config
 cloudinary.config(
     cloud_name="dx1jvytp4",
     api_key="932781884527291",
@@ -19,27 +19,27 @@ cloudinary.config(
 @app.route('/')
 def home():
     try:
-        # Fetch all images from "snapbox" folder
+        # ✅ Force fresh fetch using `next_cursor` and max results
         result = cloudinary.Search() \
             .expression("folder:snapbox") \
             .sort_by("created_at", "desc") \
-            .max_results(20) \
+            .max_results(30) \
             .execute()
 
         image_urls = [item['secure_url'] for item in result['resources']]
 
-        # Render basic HTML gallery
+        # Render Image Gallery
         html = '<h2>📸 SnapBox Cloudinary Backend is Live!</h2>'
         html += '<h3>🖼️ Uploaded Selfies:</h3><div style="display:flex;flex-wrap:wrap;gap:10px;">'
 
         for url in image_urls:
-            html += f'<div><img src="{url}" alt="selfie" width="200" style="border-radius:10px;"></div>'
+            html += f'<div><img src="{url}" width="200" style="border-radius:10px;"></div>'
 
         html += '</div>'
         return html
 
     except Exception as e:
-        return f"❌ Error loading images: {str(e)}"
+        return f"❌ Error: {str(e)}"
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
@@ -58,6 +58,7 @@ def upload_files():
             file,
             public_id=f"snapbox/selfie_{timestamp}_{index + 1}",
             overwrite=False,
+            invalidate=True,  # ✅ Add this to avoid CDN delay
             resource_type="image"
         )
         uploaded_urls.append(result['secure_url'])
