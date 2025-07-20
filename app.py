@@ -9,7 +9,7 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Cloudinary Config
+# 🔐 Cloudinary Config
 cloudinary.config(
     cloud_name="dx1jvytp4",
     api_key="932781884527291",
@@ -19,26 +19,53 @@ cloudinary.config(
 @app.route('/')
 def home():
     try:
-        # 🔄 Get latest 20 selfies from snapbox folder
         result = cloudinary.Search() \
             .expression("folder:snapbox") \
             .sort_by("created_at", "desc") \
-            .max_results(20) \
+            .max_results(100) \
             .execute()
 
-        image_urls = [item['secure_url'] for item in result['resources']]
+        resources = result['resources']
 
-        # 🖼️ HTML render
+        # ⏱ Grouping by upload time difference
+        grouped = []
+        current_group = []
+        last_time = None
+        threshold = 30  # seconds allowed between group images
+
+        for item in resources:
+            created_at = item['created_at']
+            timestamp = int(time.mktime(time.strptime(created_at[:19], "%Y-%m-%dT%H:%M:%S")))
+
+            if last_time is None or abs(last_time - timestamp) <= threshold:
+                current_group.append(item['secure_url'])
+            else:
+                grouped.append(current_group)
+                current_group = [item['secure_url']]
+
+            last_time = timestamp
+
+        if current_group:
+            grouped.append(current_group)
+
+        # 📄 HTML Response
         html = '''
         <h2 style="font-family:sans-serif;">📸 SnapBox Cloudinary Backend is Live!</h2>
-        <p>Showing latest uploaded selfies:</p>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+        <div style="font-family:monospace; font-size:14px;">
         '''
 
-        for url in image_urls:
-            html += f'<div><img src="{url}" width="200" style="border-radius:10px;border:1px solid #ccc;"></div>'
+        for i, group in enumerate(grouped, start=1):
+            html += f"<p><b>{i}. Images</b></p>"
+            for url in group:
+                html += f'''
+                <div style="margin-bottom:6px;">
+                    {url}
+                    <a href="{url}" target="_blank" style="margin-left:10px; padding:2px 6px; background:#333; color:#fff; text-decoration:none; border-radius:4px;">Open</a>
+                </div>
+                '''
+            html += "<br>"
 
-        html += '</div>'
+        html += "</div>"
         return html
 
     except Exception as e:
@@ -61,7 +88,7 @@ def upload_files():
             file,
             public_id=f"snapbox/selfie_{timestamp}_{index + 1}",
             overwrite=False,
-            invalidate=True,  # ✅ Important for latest version to show
+            invalidate=True,
             resource_type="image"
         )
         uploaded_urls.append(result['secure_url'])
