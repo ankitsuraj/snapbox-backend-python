@@ -5,6 +5,7 @@ import cloudinary.uploader
 import cloudinary.api
 import time
 import os
+import random
 
 app = Flask(__name__)
 CORS(app)
@@ -20,18 +21,18 @@ cloudinary.config(
 def home():
     try:
         result = cloudinary.Search() \
-            .expression("folder:snapbox") \
+            .expression("folder:snapbox AND resource_type:image") \
             .sort_by("created_at", "desc") \
             .max_results(100) \
             .execute()
 
         resources = result['resources']
 
-        # ⏱ Grouping by upload time difference
+        # ⏱ Group by upload session (60 sec threshold)
         grouped = []
         current_group = []
         last_time = None
-        threshold = 30  # seconds allowed between group images
+        threshold = 60  # seconds between grouped uploads
 
         for item in resources:
             created_at = item['created_at']
@@ -48,7 +49,7 @@ def home():
         if current_group:
             grouped.append(current_group)
 
-        # 📄 HTML Response
+        # 📄 Generate HTML
         html = '''
         <h2 style="font-family:sans-serif;">📸 SnapBox Cloudinary Backend is Live!</h2>
         <div style="font-family:monospace; font-size:14px;">
@@ -84,9 +85,10 @@ def upload_files():
             continue
 
         timestamp = int(time.time())
+        unique_id = random.randint(1000, 9999)
         result = cloudinary.uploader.upload(
             file,
-            public_id=f"snapbox/selfie_{timestamp}_{index + 1}",
+            public_id=f"snapbox/selfie_{timestamp}_{index + 1}_{unique_id}",
             overwrite=False,
             invalidate=True,
             resource_type="image"
