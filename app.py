@@ -19,27 +19,30 @@ cloudinary.config(
 @app.route('/')
 def home():
     try:
-        # ✅ Force fresh fetch using `next_cursor` and max results
+        # 🔄 Get latest 20 selfies from snapbox folder
         result = cloudinary.Search() \
             .expression("folder:snapbox") \
             .sort_by("created_at", "desc") \
-            .max_results(30) \
+            .max_results(20) \
             .execute()
 
         image_urls = [item['secure_url'] for item in result['resources']]
 
-        # Render Image Gallery
-        html = '<h2>📸 SnapBox Cloudinary Backend is Live!</h2>'
-        html += '<h3>🖼️ Uploaded Selfies:</h3><div style="display:flex;flex-wrap:wrap;gap:10px;">'
+        # 🖼️ HTML render
+        html = '''
+        <h2 style="font-family:sans-serif;">📸 SnapBox Cloudinary Backend is Live!</h2>
+        <p>Showing latest uploaded selfies:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+        '''
 
         for url in image_urls:
-            html += f'<div><img src="{url}" width="200" style="border-radius:10px;"></div>'
+            html += f'<div><img src="{url}" width="200" style="border-radius:10px;border:1px solid #ccc;"></div>'
 
         html += '</div>'
         return html
 
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        return f"<h3>Error: {str(e)}</h3>"
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
@@ -58,7 +61,7 @@ def upload_files():
             file,
             public_id=f"snapbox/selfie_{timestamp}_{index + 1}",
             overwrite=False,
-            invalidate=True,  # ✅ Add this to avoid CDN delay
+            invalidate=True,  # ✅ Important for latest version to show
             resource_type="image"
         )
         uploaded_urls.append(result['secure_url'])
@@ -70,4 +73,4 @@ def upload_files():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=False, host='0.0.0.0', port=port)
