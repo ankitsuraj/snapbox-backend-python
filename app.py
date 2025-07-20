@@ -2,22 +2,44 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import cloudinary
 import cloudinary.uploader
+import cloudinary.api
 import os
-import time  # 👈 for timestamp to avoid overwrite
+import time
 
 app = Flask(__name__)
 CORS(app)
 
-# 🔐 Cloudinary Configuration
+# Cloudinary config
 cloudinary.config(
-    cloud_name="dx1jvytp4",                 # <-- Apna cloud name
-    api_key="932781884527291",             # <-- Apna API key
-    api_secret="eRSeF486FPV-eh8YpBWZX8wJe7c"  # <-- Apna API secret
+    cloud_name="dx1jvytp4",
+    api_key="932781884527291",
+    api_secret="eRSeF486FPV-eh8YpBWZX8wJe7c"
 )
 
 @app.route('/')
 def home():
-    return '📸 SnapBox Cloudinary Backend is Live!'
+    try:
+        # Fetch all images from "snapbox" folder
+        result = cloudinary.Search() \
+            .expression("folder:snapbox") \
+            .sort_by("created_at", "desc") \
+            .max_results(20) \
+            .execute()
+
+        image_urls = [item['secure_url'] for item in result['resources']]
+
+        # Render basic HTML gallery
+        html = '<h2>📸 SnapBox Cloudinary Backend is Live!</h2>'
+        html += '<h3>🖼️ Uploaded Selfies:</h3><div style="display:flex;flex-wrap:wrap;gap:10px;">'
+
+        for url in image_urls:
+            html += f'<div><img src="{url}" alt="selfie" width="200" style="border-radius:10px;"></div>'
+
+        html += '</div>'
+        return html
+
+    except Exception as e:
+        return f"❌ Error loading images: {str(e)}"
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
@@ -31,22 +53,17 @@ def upload_files():
         if file.filename == '':
             continue
 
-        # 🕒 Unique timestamp for each image name
         timestamp = int(time.time())
-
-        # 📤 Upload to Cloudinary in 'snapbox' folder with unique name
         result = cloudinary.uploader.upload(
             file,
-            public_id=f"snapbox/selfie_{timestamp}_{index + 1}",  # 👈 unique name inside folder
+            public_id=f"snapbox/selfie_{timestamp}_{index + 1}",
             overwrite=False,
             resource_type="image"
         )
-
-        # ✅ Save secure URL
         uploaded_urls.append(result['secure_url'])
 
     return jsonify({
-        'message': '✅ Uploaded Permanently to Cloudinary!',
+        'message': '✅ Uploaded to Cloudinary!',
         'urls': uploaded_urls
     })
 
