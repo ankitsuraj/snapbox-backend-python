@@ -16,9 +16,8 @@ CORS(app)
 cloudinary.config(
     cloud_name="dx1jvytp4",
     api_key="932781884527291",
-    api_secret="YOUR_API_SECRET_HERE"  # Replace this with your real secret
+    api_secret="eRSeF486FPV-eh8YpBWZX8wJe7c"
 )
-
 @app.route('/')
 def home():
     result = cloudinary.Search().expression("folder:snapbox").sort_by("created_at", "desc").execute()
